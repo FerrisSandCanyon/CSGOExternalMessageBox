@@ -170,7 +170,7 @@ int main(int argc, const char** argv)
 		}
 
 		CloseHandle(modSnap);
-		assert(pClientDLL, "Failed to obtain clienr.dll module base address!");
+		assert(pClientDLL, "Failed to obtain client.dll module base address!");
 		printf("client.dll Base address: 0x%p", pClientDLL);
 	}
 
