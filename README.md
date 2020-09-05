@@ -1,4 +1,4 @@
-# CSGO External MessageBox
+# CSGO External Message Boxes / ShowMessageDialog
 A PoC about calling the ShowMessageDialog function in GameUI011 of CS:GO from an external program.
 
 [Demo Video](https://files.catbox.moe/bk85ny.mp4) <br>
