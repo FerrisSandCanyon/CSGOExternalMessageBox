@@ -351,7 +351,7 @@ int main(int argc, const char** argv)
 
 		// Write the title
 		printf("\nWriting title w/ length of %d... ", nTitleLen);
-		assert(WriteProcessMemory(hCSGO, reinterpret_cast<ptr_t>(pShellCodeMessageBox) + sizeof(scCallMessageBox), szTitle, nMsgLen, nullptr), "Failed to write MessageBox Title");
+		assert(WriteProcessMemory(hCSGO, reinterpret_cast<ptr_t>(pShellCodeMessageBox) + sizeof(scCallMessageBox), szTitle, nTitleLen, nullptr), "Failed to write MessageBox Title");
 		puts("Done!");
 
 		// Write the message
