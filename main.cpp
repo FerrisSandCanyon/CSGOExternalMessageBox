@@ -186,31 +186,31 @@ int main(int argc, const char** argv)
 		// 2. Get the export directory
 		printf("\nLocating export directory... ");
 		// nt header + nt header size - data directory array size = First element of DataDirectory which is defined as the IMAGE_DIRECTORY_ENTRY_EXPORT = also the address of the DWORD member VirtualAddress in the IMAGE_DATA_DIRECTORY struct
-		ptr_t _pExport      = pClientDLL + wRPM<DWORD>(hCSGO, (_pNTHeader + sizeof(IMAGE_NT_HEADERS32)) - (sizeof(IMAGE_OPTIONAL_HEADER32::DataDirectory)));
-		DWORD _nExportCount = wRPM<DWORD>(hCSGO, (_pExport + sizeof(IMAGE_EXPORT_DIRECTORY)) - (sizeof(DWORD) * 4));
-		printf("0x%p\nExport count: %d", _pExport, _nExportCount);
+		ptr_t pExport      = pClientDLL + wRPM<DWORD>(hCSGO, (_pNTHeader + sizeof(IMAGE_NT_HEADERS32)) - (sizeof(IMAGE_OPTIONAL_HEADER32::DataDirectory)));
+		DWORD nExportCount = wRPM<DWORD>(hCSGO, (pExport + sizeof(IMAGE_EXPORT_DIRECTORY)) - (sizeof(DWORD) * 4));
+		printf("0x%p\nExport count: %d", pExport, nExportCount);
 
 		// 3.a Parse the export directory: Function exports
 		printf("\nLocating function export address... ");
-		ptr_t _pExportFunctions = pClientDLL + wRPM<DWORD>(hCSGO, (_pExport + sizeof(IMAGE_EXPORT_DIRECTORY)) - (sizeof(DWORD) * 3)); // export address + size of image export - 3rd dword member from the last = function address RVA
-		printf("0x%p", _pExportFunctions);
+		ptr_t pExportFunctions = pClientDLL + wRPM<DWORD>(hCSGO, (pExport + sizeof(IMAGE_EXPORT_DIRECTORY)) - (sizeof(DWORD) * 3)); // export address + size of image export - 3rd dword member from the last = function address RVA
+		printf("0x%p", pExportFunctions);
 
 		// 3.b Parse the export directory: Name exports
 		printf("\nLocating names export address... ");
-		ptr_t _pExportNames = pClientDLL + wRPM<DWORD>(hCSGO, (_pExport + sizeof(IMAGE_EXPORT_DIRECTORY)) - (sizeof(DWORD) * 2)); // export address + size of image export - 2nd dword member from the last = name address RVA
-		printf("0x%p", _pExportNames);
+		ptr_t pExportNames = pClientDLL + wRPM<DWORD>(hCSGO, (pExport + sizeof(IMAGE_EXPORT_DIRECTORY)) - (sizeof(DWORD) * 2)); // export address + size of image export - 2nd dword member from the last = name address RVA
+		printf("0x%p", pExportNames);
 
 		// 3.b Parse the export directory: Name exports
 		printf("\nLocating ordinals export address... ");
-		ptr_t _pExportOrdinals = pClientDLL + wRPM<DWORD>(hCSGO, (_pExport + sizeof(IMAGE_EXPORT_DIRECTORY)) - (sizeof(DWORD) * 1)); // export address + size of image export - 1st dword member from the last = ordinal address RVA
-		printf("0x%p", _pExportOrdinals);
+		ptr_t pExportOrdinals = pClientDLL + wRPM<DWORD>(hCSGO, (pExport + sizeof(IMAGE_EXPORT_DIRECTORY)) - (sizeof(DWORD) * 1)); // export address + size of image export - 1st dword member from the last = ordinal address RVA
+		printf("0x%p", pExportOrdinals);
 
 		// 4. Obtain the CreateInterface function export
-		ptr_t _pFnCreateInterface = nullptr;
-		for (DWORD idx = 0; idx < _nExportCount; idx++)
+		ptr_t pFnCreateInterface = nullptr;
+		for (DWORD idx = 0; idx < nExportCount; idx++)
 		{
 			char szFnName[sizeof("CreateInterface") + 1] = { '\0' };
-			DWORD rva = wRPM<DWORD>(hCSGO, _pExportNames + sizeof(DWORD) * idx);
+			DWORD rva = wRPM<DWORD>(hCSGO, pExportNames + sizeof(DWORD) * idx);
 
 			if (!ReadProcessMemory(hCSGO, pClientDLL + rva, szFnName, sizeof(szFnName) - 1, nullptr)) // -1 makes sure to leave space for a null terminator
 			{
@@ -223,19 +223,19 @@ int main(int argc, const char** argv)
 			if (cx_fnv(szFnName, 15) == cx_fnv("CreateInterface"))
 			{
 				printf("... Found!\nObtaining CreateInterface address... ");
-				_pFnCreateInterface = pClientDLL + wRPM<DWORD>(hCSGO, _pExportFunctions + sizeof(DWORD) *      // Function RVA
-												   wRPM<SHORT>(hCSGO, _pExportOrdinals  + sizeof(SHORT) * idx) // Function ordinal
+				pFnCreateInterface = pClientDLL + wRPM<DWORD>(hCSGO, pExportFunctions + sizeof(DWORD) *      // Function RVA
+												  wRPM<SHORT>(hCSGO, pExportOrdinals  + sizeof(SHORT) * idx) // Function ordinal
 				);
-				printf("0x%p", _pFnCreateInterface);
+				printf("0x%p", pFnCreateInterface);
 				break;
 			}
 		}
 
-		assert(_pFnCreateInterface, "Failed to obtain CreateInterface export");
+		assert(pFnCreateInterface, "Failed to obtain CreateInterface export");
 
 		// Call CreateInterface and obtain an interface pointer to GameUI011
-		// Shell code to call create interface (https://defuse.ca/online-x86-assembler.htm)
-		unsigned char _scCallCreateInterface[] =
+		// Shellcode to call create interface (https://defuse.ca/online-x86-assembler.htm)
+		unsigned char scCallCreateInterface[] =
 		{
 			0x55, 							 // push   ebp
 			0x51,                            // push   ecx
@@ -258,17 +258,17 @@ int main(int argc, const char** argv)
 
 		// Allocate the shellcode
 		printf("\nAllocating memory for CreateInterface shellcode... ");
-		LPVOID pShellCodeCreateInterface = VirtualAllocEx(hCSGO, nullptr, sizeof(_scCallCreateInterface), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+		LPVOID pShellCodeCreateInterface = VirtualAllocEx(hCSGO, nullptr, sizeof(scCallCreateInterface), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 		assert(pShellCodeCreateInterface, "Failed to allocate memory for shellcode");
 
 		// Setup shellcode
-		*reinterpret_cast<ptr_t*>(_scCallCreateInterface + 0x06) = _pFnCreateInterface; // Setup pointer to function call
-		*reinterpret_cast<ptr_t*>(_scCallCreateInterface + 0x0B) = reinterpret_cast<ptr_t>(pShellCodeCreateInterface) + sizeof(_scCallCreateInterface) - sizeof("GameUI011") - sizeof(ptr_t); // Setup arg
-		*reinterpret_cast<ptr_t*>(_scCallCreateInterface + 0x18) = reinterpret_cast<ptr_t>(pShellCodeCreateInterface) + sizeof(_scCallCreateInterface) - sizeof(ptr_t); // Setup address to store return value
+		*reinterpret_cast<ptr_t*>(scCallCreateInterface + 0x06) = pFnCreateInterface; // Setup pointer to function call
+		*reinterpret_cast<ptr_t*>(scCallCreateInterface + 0x0B) = reinterpret_cast<ptr_t>(pShellCodeCreateInterface) + sizeof(scCallCreateInterface) - sizeof("GameUI011") - sizeof(ptr_t); // Setup arg
+		*reinterpret_cast<ptr_t*>(scCallCreateInterface + 0x18) = reinterpret_cast<ptr_t>(pShellCodeCreateInterface) + sizeof(scCallCreateInterface) - sizeof(ptr_t); // Setup address to store return value
 
 		// Write shellcode
 		printf("Writing... ");
-		assert(WriteProcessMemory(hCSGO, pShellCodeCreateInterface, _scCallCreateInterface, sizeof(_scCallCreateInterface), nullptr), "Failed to write CreateInterface shellcode");
+		assert(WriteProcessMemory(hCSGO, pShellCodeCreateInterface, scCallCreateInterface, sizeof(scCallCreateInterface), nullptr), "Failed to write CreateInterface shellcode");
 		printf("0x%p", pShellCodeCreateInterface);
 
 		// Run the shellcode
@@ -282,7 +282,7 @@ int main(int argc, const char** argv)
 
 		// Read the return
 		printf("Reading GameUI011 interface... ");
-		iGameUI = wRPM<ptr_t>(hCSGO, reinterpret_cast<ptr_t>(pShellCodeCreateInterface) + sizeof(_scCallCreateInterface) - sizeof(ptr_t));
+		iGameUI = wRPM<ptr_t>(hCSGO, reinterpret_cast<ptr_t>(pShellCodeCreateInterface) + sizeof(scCallCreateInterface) - sizeof(ptr_t));
 		printf("0x%p", iGameUI);
 
 		// Clean up
@@ -293,15 +293,16 @@ int main(int argc, const char** argv)
 	{
 		// Obtain GameUI011's vtable pointer
 		printf("\nReading GameUI011 vtable pointer... ");
-		void** igui_vtable = wRPM<void**>(hCSGO, iGameUI); // Type not really necessary but just for readability?
-		printf("0x%p", igui_vtable);
+		void** pIGUI_vtable = wRPM<void**>(hCSGO, iGameUI); // Type not really necessary but just for readability?
+		printf("0x%p", pIGUI_vtable);
 
 		// Obtain the ShowMessageDialog function pointer located at index 20
 		printf("\nObtaining ShowMessageDialog pointer... ");
-		pFnMessageBox = wRPM<ptr_t>(hCSGO, reinterpret_cast<ptr_t>(igui_vtable) + (sizeof(ptr_t) * 20) );
+		pFnMessageBox = wRPM<ptr_t>(hCSGO, reinterpret_cast<ptr_t>(pIGUI_vtable) + (sizeof(ptr_t) * 20) );
 		printf("0x%p", pFnMessageBox);
 		
-		unsigned char _scCallMessageBox[] =
+		// Shellcode to call ShowMessageDialog
+		unsigned char scCallMessageBox[] =
 		{
 			0x55, 							 // push   ebp
 			0x50,                            // push   eax
@@ -333,28 +334,28 @@ int main(int argc, const char** argv)
 
 		// Allocate for the shellcode
 		printf("\nAllocating memory for MessageBox shellcode... ");
-		LPVOID pShellCodeMessageBox = VirtualAllocEx(hCSGO, nullptr, sizeof(_scCallMessageBox) + nMsgLen + nTitleLen + 2, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+		LPVOID pShellCodeMessageBox = VirtualAllocEx(hCSGO, nullptr, sizeof(scCallMessageBox) + nMsgLen + nTitleLen + 2, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 		assert(pShellCodeMessageBox, "Failed to allocate memory for shellcode");
 
 		// Setup the shellcode
-		*reinterpret_cast<ptr_t*>(_scCallMessageBox + 0x08) = pFnMessageBox;
-		*reinterpret_cast<ptr_t*>(_scCallMessageBox + 0x0D) = iGameUI;
-		*reinterpret_cast<ptr_t*>(_scCallMessageBox + 0x12) = reinterpret_cast<ptr_t>(pShellCodeMessageBox) + sizeof(_scCallMessageBox);
-		*reinterpret_cast<ptr_t*>(_scCallMessageBox + 0x17) = reinterpret_cast<ptr_t>(pShellCodeMessageBox) + sizeof(_scCallMessageBox) + nTitleLen + 1;
+		*reinterpret_cast<ptr_t*>(scCallMessageBox + 0x08) = pFnMessageBox;
+		*reinterpret_cast<ptr_t*>(scCallMessageBox + 0x0D) = iGameUI;
+		*reinterpret_cast<ptr_t*>(scCallMessageBox + 0x12) = reinterpret_cast<ptr_t>(pShellCodeMessageBox) + sizeof(scCallMessageBox);
+		*reinterpret_cast<ptr_t*>(scCallMessageBox + 0x17) = reinterpret_cast<ptr_t>(pShellCodeMessageBox) + sizeof(scCallMessageBox) + nTitleLen + 1;
 
 		// Write shellcode
 		printf("Writing... ");
-		assert(WriteProcessMemory(hCSGO, pShellCodeMessageBox, _scCallMessageBox, sizeof(_scCallMessageBox), nullptr), "Failed to write MessageBox shellcode");
+		assert(WriteProcessMemory(hCSGO, pShellCodeMessageBox, scCallMessageBox, sizeof(scCallMessageBox), nullptr), "Failed to write MessageBox shellcode");
 		printf("0x%p", pShellCodeMessageBox);
 
 		// Write the title
 		printf("\nWriting title w/ length of %d... ", nTitleLen);
-		assert(WriteProcessMemory(hCSGO, reinterpret_cast<ptr_t>(pShellCodeMessageBox) + sizeof(_scCallMessageBox), szTitle, nMsgLen, nullptr), "Failed to write MessageBox Title");
+		assert(WriteProcessMemory(hCSGO, reinterpret_cast<ptr_t>(pShellCodeMessageBox) + sizeof(scCallMessageBox), szTitle, nMsgLen, nullptr), "Failed to write MessageBox Title");
 		puts("Done!");
 
 		// Write the message
 		printf("Writing message w/ length of %d... ", nMsgLen);
-		assert(WriteProcessMemory(hCSGO, reinterpret_cast<ptr_t>(pShellCodeMessageBox) + sizeof(_scCallMessageBox) + nTitleLen + 1, szMsg, nMsgLen, nullptr), "Failed to write MessageBox Title");
+		assert(WriteProcessMemory(hCSGO, reinterpret_cast<ptr_t>(pShellCodeMessageBox) + sizeof(scCallMessageBox) + nTitleLen + 1, szMsg, nMsgLen, nullptr), "Failed to write MessageBox Title");
 		puts("Done!");
 
 		// Run the shellcode
