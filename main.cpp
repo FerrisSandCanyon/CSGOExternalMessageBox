@@ -175,7 +175,7 @@ int main(int argc, const char** argv)
 	}
 
 	// Find the export section in the header and obtain a pointer to the CreateInterface
-	// Note: Parsing the interface reg might be better solution which doesn't require a shellcode
+	// Note: Parsing the interface reg might be a better solution which doesn't require a shellcode
 	{
 		// 1. Find the NT header by reading e_lfanew in the DOS header
 		printf("\nLocating NT header... ");
