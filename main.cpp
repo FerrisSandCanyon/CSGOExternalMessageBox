@@ -99,7 +99,7 @@ int main(int argc, const char** argv)
 	DWORD       pidCSGO          = 0;       // CSGO's process ID
 	HANDLE      hCSGO            = nullptr; // Open process handle to CSGO
 	ptr_t       pClientDLL       = nullptr; // Pointer address to the Client DLL's base address
-	ptr_t       iGameUI          = nullptr; // Game UI interface pointer
+	ptr_t       iGameUI          = nullptr; // GameUI011 interface pointer
 	ptr_t       pFnMessageBox    = nullptr; // Pointer to the csgo message box function
 
 	// For debugging purposes, automatically override the parsed args
@@ -107,8 +107,8 @@ int main(int argc, const char** argv)
 		static const char* __debug_defargv[] =
 		{
 			"",
-			"but i have different message!", // Message box message
-			"EMB"  // Message box title
+			"this is a message", // Message box message
+			"this is a title"  // Message box title
 		};
 
 		argc = 2;
@@ -121,8 +121,8 @@ int main(int argc, const char** argv)
 		return 1;
 	}
 
-	// Set msg and title from args and get it's length
-	nMsgLen   = cx_strlen(szMsg = argv[1]);
+	// Set msg and title from args and get its length
+	nMsgLen   = cx_strlen(szMsg   = argv[1]);
 	nTitleLen = cx_strlen(szTitle = argv[2]);
 
 	// Find CSGO Process
